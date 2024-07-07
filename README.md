@@ -1,5 +1,8 @@
 # Ticket-Bot
 
+This discord bot is completely coded with node.js.
+To use the bot, you first need to download [node.js](https://nodejs.org/dist/v20.15.0/node-v20.15.0-x64.msi).
+
 !setup command to send the support message to the bot.
 Also don't forget to edit the stuff in the .env file.
 
