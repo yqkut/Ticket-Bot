@@ -204,10 +204,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await logChannel.send({ embeds: [creationLogEmbed] });
 
     await interaction.update({
-      content: `Your Ticket is Opened, ${interaction.user}!`,
+      embeds: [
+        new EmbedBuilder()
+          .setTitle('Ticket Opened')
+          .setDescription(`Your ticket has been successfully opened, ${interaction.user}! Our staff will assist you shortly.`)
+          .setColor(0x00ff00)
+          .setFooter({
+            text: 'Thank you for your patience.',
+            iconURL: interaction.user.displayAvatarURL(),
+          })
+      ],
       components: [],
       ephemeral: true,
     });
+    
   }
 
   if (interaction.customId === 'close_ticket') {
