@@ -1,89 +1,95 @@
 const { Client, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, Events, PermissionsBitField, EmbedBuilder } = require('discord.js');
 const { config } = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 config();
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
   ],
-  partials: [Partials.Channel]
+  partials: [Partials.Channel, Partials.Message, Partials.User],
 });
 
 client.once('ready', () => {
   console.log(`${client.user.tag} is ready dude lmfao`);
 });
 
-client.on('messageCreate', async message => {
+client.on('messageCreate', async (message) => {
   if (message.content === '!setup') {
     const setupRoleID = process.env.SETUP_ROLE_ID;
-    
+
     if (!message.member.roles.cache.has(setupRoleID)) {
       return message.reply('You are not authorized to use this command!');
     }
 
     const ticketEmbed = {
       title: 'Choose an option to continue',
-      description: 'To report any problem or issue, you can press the button and get support from our staffs.\n\nPlease do not open a new channel while you have an existing support channel.',
-      color: 0x00ff00
+      description:
+        'To report any problem or issue, you can press the button and get support from our staffs.\n\nPlease do not open a new channel while you have an existing support channel.',
+      color: 0x00ff00,
     };
 
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('create_ticket')
-          .setLabel('🔓 Create Ticket')
-          .setStyle(ButtonStyle.Success)
-      );
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('create_ticket')
+        .setLabel('🔓 Create Ticket')
+        .setStyle(ButtonStyle.Success)
+    );
 
     await message.channel.send({ embeds: [ticketEmbed], components: [row] });
   }
 });
 
-client.on(Events.InteractionCreate, async interaction => {
+client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isButton() && !interaction.isStringSelectMenu()) return;
 
   if (interaction.customId === 'create_ticket') {
-    const selectMenu = new ActionRowBuilder()
-      .addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId('select_ticket_reason')
-          .setPlaceholder('Choose a reason:')
-          .addOptions([
-            {
-              label: 'Support',
-              description: 'Ask for help',
-              value: 'help',
-              emoji: '🙋‍♂️'
-            },
-            {
-              label: 'Technical Support',
-              description: 'Ask for technical help',
-              value: 'technical_help',
-              emoji: '🛠️'
-            },
-            {
-              label: 'Report',
-              description: 'Report any user',
-              value: 'report',
-              emoji: '✉️'
-            },
-            {
-              label: 'Other',
-              description: 'Ask for help with other issues',
-              value: 'other',
-              emoji: '❓'
-            }
-          ])
-      );
+    const selectMenu = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('select_ticket_reason')
+        .setPlaceholder('Choose a reason:')
+        .addOptions([
+          {
+            label: 'Support',
+            description: 'Ask for help',
+            value: 'help',
+            emoji: '🙋‍♂️',
+          },
+          {
+            label: 'Technical Support',
+            description: 'Ask for technical help',
+            value: 'technical_help',
+            emoji: '🛠️',
+          },
+          {
+            label: 'Report',
+            description: 'Report any user',
+            value: 'report',
+            emoji: '✉️',
+          },
+          {
+            label: 'Other',
+            description: 'Ask for help with other issues',
+            value: 'other',
+            emoji: '❓',
+          },
+        ])
+    );
 
-    await interaction.reply({ content: 'What do you need help with?', components: [selectMenu], ephemeral: true });
+    await interaction.reply({
+      content: 'What do you need help with?',
+      components: [selectMenu],
+      ephemeral: true,
+    });
   }
 
   if (interaction.customId === 'select_ticket_reason') {
     const reason = interaction.values[0];
-    
+
     const ticketChannel = await interaction.guild.channels.create({
       name: `ticket-${interaction.user.username}`,
       type: 0,
@@ -91,17 +97,17 @@ client.on(Events.InteractionCreate, async interaction => {
       permissionOverwrites: [
         {
           id: interaction.guild.id,
-          deny: [PermissionsBitField.Flags.ViewChannel]
+          deny: [PermissionsBitField.Flags.ViewChannel],
         },
         {
           id: interaction.user.id,
-          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages],
         },
         {
-          id: process.env.TICKET_ROLE_ID,
-          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
-        }
-      ]
+          id: process.env.HELPER_ROLE_ID,
+          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages],
+        },
+      ],
     });
 
     let reasonText;
@@ -119,37 +125,108 @@ client.on(Events.InteractionCreate, async interaction => {
         reasonText = 'Other';
         break;
       default:
-        reasonText = 'Unknown';
+        reasonText = 'Support';
     }
+
+    const role = interaction.guild.roles.cache.get(process.env.HELPER_ROLE_ID);
+    role.members.forEach(async (member) => {
+      try {
+        const embed = new EmbedBuilder()
+          .setTitle('🎫 New Ticket Created')
+          .setDescription(`A new ticket has been created!`)
+          .addFields(
+            { name: 'Created by', value: interaction.user.tag, inline: true },
+            { name: 'Reason', value: reasonText, inline: true },
+            { name: 'Channel', value: `<#${ticketChannel.id}>`, inline: true }
+          )
+          .setColor(0x00ff00)
+          .setFooter({
+            text: `Please assist them in the channel.`,
+            iconURL: interaction.guild.iconURL(),
+          });
+    
+        await member.send({ embeds: [embed] });
+      } catch (error) {
+        console.error(`Could not send DM to ${member.user.tag}: ${error}`);
+      }
+    });
+    
 
     const ticketEmbed = new EmbedBuilder()
       .setTitle('🎫 Your ticket was successfully created!')
-      .setDescription(`**Reason for ticket creation:** ${reasonText}\n\nOur staffs with role <@&1259573922022690867> will help you.`)
+      .setDescription(
+        `**Reason for ticket creation:** ${reasonText}\n\nOur staffs with role <@&${process.env.HELPER_ROLE_ID}> will help you.`
+      )
       .setColor(0x00ff00)
-      .setFooter({ text: `Your problem will surely be solved, please wait patiently.`, iconURL: interaction.user.displayAvatarURL() });
+      .setFooter({
+        text: `Your problem will surely be solved, please wait patiently.`,
+        iconURL: interaction.user.displayAvatarURL(),
+      });
 
     await ticketChannel.send({
       embeds: [ticketEmbed],
       components: [
-        new ActionRowBuilder()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId('close_ticket')
-              .setLabel('🔒 Close Ticket')
-              .setStyle(ButtonStyle.Danger)
-          )
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('close_ticket')
+            .setLabel('🔒 Close Ticket')
+            .setStyle(ButtonStyle.Danger)
+        ),
       ],
-            content: `<@&1259573922022690867>`
+      content: `<@&${process.env.HELPER_ROLE_ID}>`,
     });
 
-    await interaction.update({ content: `Your Ticket is Opened, ${interaction.user}!`, components: [], ephemeral: true });
+    const logChannel = await client.channels.fetch(process.env.LOG_CHANNEL_ID);
+    const creationLogEmbed = new EmbedBuilder()
+      .setTitle('Ticket Created')
+      .setDescription(`A new ticket has been created.`)
+      .addFields(
+        { name: 'Created by', value: interaction.user.tag, inline: true },
+        { name: 'Reason', value: reasonText, inline: true },
+        { name: 'Channel', value: `<#${ticketChannel.id}>`, inline: true },
+        { name: 'Created at', value: new Date().toLocaleString(), inline: true }
+      )
+      .setColor(0x00ff00);
+
+    await logChannel.send({ embeds: [creationLogEmbed] });
+
+    await interaction.update({
+      content: `Your Ticket is Opened, ${interaction.user}!`,
+      components: [],
+      ephemeral: true,
+    });
   }
 
   if (interaction.customId === 'close_ticket') {
-    if (!interaction.member.roles.cache.has(process.env.TICKET_ROLE_ID)) {
-      return interaction.reply({ content: 'Only staffs with role <@&1259573922022690867> can close this ticket!', ephemeral: true });
+    if (!interaction.member.roles.cache.has(process.env.HELPER_ROLE_ID)) { 
+      return interaction.reply({
+        content: 'Only staffs with role <@&1259573922022690867> can close this ticket!', 
+        ephemeral: true,
+      });
     }
-    
+
+    const logChannel = await client.channels.fetch(process.env.LOG_CHANNEL_ID);
+
+    const messages = await interaction.channel.messages.fetch({ limit: 100 });
+    const messageArray = messages.map((msg) => `${msg.author.tag}: ${msg.content}`).reverse();
+    const logFilePath = path.join(__dirname, `log-${interaction.channel.name}.txt`);
+
+    fs.writeFileSync(logFilePath, messageArray.join('\n'), 'utf8');
+
+    const logEmbed = new EmbedBuilder()
+      .setTitle('Ticket Closed')
+      .setDescription(`Ticket \`${interaction.channel.name}\` has been closed.`)
+      .addFields(
+        { name: 'Closed by', value: interaction.user.tag, inline: true },
+        { name: 'Closed at', value: new Date().toLocaleString(), inline: true }
+      )
+      .setColor(0xff0000);
+
+    await logChannel.send({ embeds: [logEmbed] });
+    await logChannel.send({ files: [logFilePath] });
+
+    fs.unlinkSync(logFilePath);
+
     await interaction.channel.delete();
   }
 });
