@@ -29,8 +29,8 @@ client.on('messageCreate', async (message) => {
     await message.delete();
 
     const ticketEmbed = new EmbedBuilder()
-      .setTitle('Choose an option to continue')
-      .setDescription('To report any problem or issue, you can press the button and get support from our staffs.\n\nPlease do not open a new channel while you have an existing support channel.')
+      .setTitle('Please read before you continue')
+      .setDescription('To report a problem or issue, you can contact our support team by clicking the button below.\n\nOur support team is here to resolve any issues you may have and will be happy to help you. We are here to provide fast and effective support whenever you need it.\n\nWe strive to solve your problems as soon as possible and provide you with a better service.')
       .setColor(0x00ff00)
       .setThumbnail(message.guild.iconURL());
 
