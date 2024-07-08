@@ -26,12 +26,11 @@ client.on('messageCreate', async (message) => {
       return message.reply('You are not authorized to use this command!');
     }
 
-    const ticketEmbed = {
-      title: 'Choose an option to continue',
-      description:
-        'To report any problem or issue, you can press the button and get support from our staffs.\n\nPlease do not open a new channel while you have an existing support channel.',
-      color: 0x00ff00,
-    };
+    const ticketEmbed = new EmbedBuilder()
+      .setTitle('Choose an option to continue')
+      .setDescription('To report any problem or issue, you can press the button and get support from our staffs.\n\nPlease do not open a new channel while you have an existing support channel.')
+      .setColor(0x00ff00)
+      .setThumbnail(message.guild.iconURL());
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -213,20 +212,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.customId === 'close_ticket') {
     if (!interaction.member.roles.cache.has(process.env.HELPER_ROLE_ID)) { 
+      const noPermissionEmbed = new EmbedBuilder()
+        .setTitle('Permission Denied')
+        .setDescription('Only staffs with the required role can close this ticket!')
+        .setColor(0xff0000)
+        .setFooter({ text: 'Contact an admin if you believe this is a mistake.' });
+  
       return interaction.reply({
-        content: 'Only staffs with role <@&1259573922022690867> can close this ticket!', 
+        embeds: [noPermissionEmbed], 
         ephemeral: true,
       });
     }
-
+  
     const logChannel = await client.channels.fetch(process.env.LOG_CHANNEL_ID);
-
+  
     const messages = await interaction.channel.messages.fetch({ limit: 100 });
     const messageArray = messages.map((msg) => `${msg.author.tag}: ${msg.content}`).reverse();
     const logFilePath = path.join(__dirname, `log-${interaction.channel.name}.txt`);
-
+  
     fs.writeFileSync(logFilePath, messageArray.join('\n'), 'utf8');
-
+  
     const logEmbed = new EmbedBuilder()
       .setTitle('Ticket Closed')
       .setDescription(`Ticket \`${interaction.channel.name}\` has been closed.`)
@@ -235,12 +240,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         { name: 'Closed at', value: new Date().toLocaleString(), inline: true }
       )
       .setColor(0xff0000);
-
+  
     await logChannel.send({ embeds: [logEmbed] });
     await logChannel.send({ files: [logFilePath] });
-
+  
     fs.unlinkSync(logFilePath);
-
+  
     await interaction.channel.delete();
   }
 });
