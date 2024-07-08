@@ -26,6 +26,8 @@ client.on('messageCreate', async (message) => {
       return message.reply('You are not authorized to use this command!');
     }
 
+    await message.delete();
+
     const ticketEmbed = new EmbedBuilder()
       .setTitle('Choose an option to continue')
       .setDescription('To report any problem or issue, you can press the button and get support from our staffs.\n\nPlease do not open a new channel while you have an existing support channel.')
@@ -217,7 +219,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       components: [],
       ephemeral: true,
     });
-    
   }
 
   if (interaction.customId === 'close_ticket') {
@@ -227,21 +228,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .setDescription('Only staffs with the required role can close this ticket!')
         .setColor(0xff0000)
         .setFooter({ text: 'Contact an admin if you believe this is a mistake.' });
-  
+
       return interaction.reply({
         embeds: [noPermissionEmbed], 
         ephemeral: true,
       });
     }
-  
+
     const logChannel = await client.channels.fetch(process.env.LOG_CHANNEL_ID);
-  
+
     const messages = await interaction.channel.messages.fetch({ limit: 100 });
     const messageArray = messages.map((msg) => `${msg.author.tag}: ${msg.content}`).reverse();
     const logFilePath = path.join(__dirname, `log-${interaction.channel.name}.txt`);
-  
+
     fs.writeFileSync(logFilePath, messageArray.join('\n'), 'utf8');
-  
+
     const logEmbed = new EmbedBuilder()
       .setTitle('Ticket Closed')
       .setDescription(`Ticket \`${interaction.channel.name}\` has been closed.`)
@@ -250,12 +251,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         { name: 'Closed at', value: new Date().toLocaleString(), inline: true }
       )
       .setColor(0xff0000);
-  
+
     await logChannel.send({ embeds: [logEmbed] });
     await logChannel.send({ files: [logFilePath] });
-  
+
     fs.unlinkSync(logFilePath);
-  
+
     await interaction.channel.delete();
   }
 });
