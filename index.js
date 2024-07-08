@@ -48,6 +48,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isButton() && !interaction.isStringSelectMenu()) return;
 
   if (interaction.customId === 'create_ticket') {
+    const existingTicketChannel = interaction.guild.channels.cache.find(channel =>
+      channel.name.startsWith('ticket-') && channel.permissionsFor(interaction.user).has(PermissionsBitField.Flags.ViewChannel)
+    );
+
+    if (existingTicketChannel) {
+      const existingTicketEmbed = new EmbedBuilder()
+        .setTitle('Existing Ticket Found')
+        .setDescription(`You already have an open ticket: <#${existingTicketChannel.id}>. Please use the existing channel for your support requests.`)
+        .setColor(0xff0000);
+
+      await interaction.reply({ embeds: [existingTicketEmbed], ephemeral: true });
+      return;
+    }
+
     const selectMenu = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId('select_ticket_reason')
